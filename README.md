@@ -19,3 +19,27 @@ L'obiettivo di questa esercitazione è progettare e implementare una rete interc
 
 ---
 
+## Istruzioni per l'Uso
+> **Nota:** è necessaria l'installazione di [platformIO](https://platformio.org/) per compilare il codice sorgente
+
+### 1. Clonare il Repository
+
+Per iniziare, clona il repository:
+
+```bash
+git clone https://github.com/andrexlenx/Esercitazione-messaggistica-zigbee.git
+cd Esercitazione-messaggistica-zigbee
+```
+### 2 Compilazione ed esecuzione
+
+esegui la routine di compilazione e di upload dalla GUI di VSCode, oppure con il comando:
+
+- su linux: 
+```bash
+platformio run --target upload
+```
+
+- su windows: 
+```bash
+platformio.exe run --target upload
+```
