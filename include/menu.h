@@ -7,6 +7,10 @@
 
 #define menuheight 64
 #define menuwidth 128
+#define textableheight 8
+#define textheight 8
+#define textablewidth 21
+#define textwidth 6
 
 class MenuItem {
     public:
