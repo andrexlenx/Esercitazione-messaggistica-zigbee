@@ -10,7 +10,7 @@ typedef struct __attribute__((packed)) mymsg_t {
   uint8_t time[8];
   char username[16];
   char receiver[16];
-  char message[486];
+  char message[470];
 } mymsg_t;
 
 mymsg_t lastMessage = {};
@@ -33,10 +33,19 @@ void onBleReceived(BLECharacteristic *pCharacteristic) {
 
 void onInetReceived(uint8_t* buf, size_t size) {
     memcpy(&lastMessage, buf, min(size, (size_t)sizeof(mymsg_t)));
-    Serial.println("Received from network: ");
+    Serial.println("Received from network:");
     if (bleConnector->allset) {
         bleConnector->sendData(buf, size);
     }
+}
+
+mymsg_t tmpmessage = {};
+void testsend(MenuItem* self, void* args) {
+  tmpmessage.command = (int)args;
+  memcpy(tmpmessage.time, &lastMessage.time, 8);
+  if (bleConnector->allset) {
+      bleConnector->sendData((uint8_t*)&tmpmessage, sizeof(mymsg_t) - sizeof(tmpmessage.message) + strlen(tmpmessage.message) + 1);
+  }
 }
 
 void LEDsoff(MenuItem* self, void* args) {
@@ -154,9 +163,19 @@ void setup() {
   IoTBoard::init_display();
   IoTBoard::init_buttons();
 
+  tmpmessage.command = 128;
+  u64_t timeoffset = 1765061214086;
+  memcpy(tmpmessage.time, &timeoffset, 8);
+  memset(&tmpmessage.username, 0, 16);
+  memset(&tmpmessage.receiver, 0, 16);
+  memset(&tmpmessage.message, 0, 470);
+  strcpy(tmpmessage.username, "ESP32");
+  strcpy(tmpmessage.receiver, "Global");
+  strcpy(tmpmessage.message, "Hello from ESP32!");
+
   internet->onMessage = onInetReceived;
   bleConnector->writeChar->ondata = onBleReceived;
-  //Internet::init_bridge();
+
   MenuItem* rootMenu = new MenuItem("MAIN MENU");
   Menu::init_menu(rootMenu);
 
@@ -194,6 +213,18 @@ void setup() {
 
   MenuItem* allLEDsOffItem = new MenuItem("Turn All LEDs Off", ledsMenu);
   allLEDsOffItem->setAction(allLEDs, (void*)LOW);
+
+  MenuItem* testmenu = new MenuItem("Send Test Msg", rootMenu);
+  MenuItem* sendadvertisement = new MenuItem("Send Advertisement", testmenu);
+  sendadvertisement->setAction(testsend, (void*)4);
+  MenuItem* sendiscovery = new MenuItem("Send Discovery", testmenu);
+  sendiscovery->setAction(testsend, (void*)8);
+  MenuItem* sendrecv = new MenuItem("Send recv ack", testmenu);
+  sendrecv->setAction(testsend, (void*)127);
+  MenuItem* sendmessage = new MenuItem("Send Message", testmenu);
+  sendmessage->setAction(testsend, (void*)128);
+  MenuItem* sendbroadcast = new MenuItem("Send Broadcast", testmenu);
+  sendbroadcast->setAction(testsend, (void*)255);
 
   Menu::render();
 }
