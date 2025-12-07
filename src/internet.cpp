@@ -46,7 +46,7 @@ void InternetClass::init_bridge() {
         return;
     }
     tcpConnecting = false;
-    xTaskCreate(loop, "InternetTask", 4096, this, 1, &netask);
+    xTaskCreate(loop, "InternetTask", 5120, this, 1, &netask);
     Serial.println("[NET] Bridge OK");
 }
 
@@ -55,7 +55,7 @@ void InternetClass::stop_bridge() {
         client.stop();
     }
     if (WiFi.status() == WL_CONNECTED) {
-        WiFi.disconnect(true);
+        WiFi.disconnect();
     }
     reset_state();
 }

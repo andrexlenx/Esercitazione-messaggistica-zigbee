@@ -1,7 +1,6 @@
 #pragma once
 
 #include <Arduino.h>
-#include <iot_board.h>
 #include <WiFi.h>
 #include "secrets.h"
 
@@ -66,7 +65,7 @@ class InternetClass {
         InternetClass* self = static_cast<InternetClass*>(parameter);
         while (self->client.connected()) {
             if (self->client.available()) {
-                uint8_t buffer[256];
+                uint8_t buffer[4096];
                 self->read(buffer, sizeof(buffer));
             }
             delay(50);
