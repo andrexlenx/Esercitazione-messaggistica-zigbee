@@ -4,6 +4,7 @@
 #include "internet.h"
 #include "menu.h"
 #include "bluetooth.cpp"
+#include "zigbee.cpp"
 
 typedef struct __attribute__((packed)) mymsg_t {
   uint8_t command;
@@ -17,6 +18,7 @@ mymsg_t lastMessage = {};
 InternetClass *internet = InternetClass::get_instance();
 WiFiClient *wifiClient = internet->getClient();
 BLEConnector* bleConnector = new BLEConnector();
+ZigbeeConnector* zigbeeConnector = new ZigbeeConnector();
 
 void onBleReceived(BLECharacteristic *pCharacteristic) {
     uint8_t* value = pCharacteristic->getData();
@@ -28,6 +30,9 @@ void onBleReceived(BLECharacteristic *pCharacteristic) {
       if (wifiClient->connected()) {
           Internet::write(value, length);
       }
+      if (zigbeeConnector->allset) {
+          zigbeeConnector->sendBroadcast(value, length);
+      }
     }
 }
 
@@ -36,6 +41,20 @@ void onInetReceived(uint8_t* buf, size_t size) {
     Serial.println("Received from network:");
     if (bleConnector->allset) {
         bleConnector->sendData(buf, size);
+    }
+    if (zigbeeConnector->allset) {
+        zigbeeConnector->sendBroadcast(buf, size);
+    }
+}
+
+void onZigbeeReceived(uint8_t* buf, size_t size) {
+    memcpy(&lastMessage, buf, min(size, (size_t)sizeof(mymsg_t)));
+    Serial.println("Received from Zigbee:");
+    if (bleConnector->allset) {
+        bleConnector->sendData(buf, size);
+    }
+    if (wifiClient->connected()) {
+        Internet::write(buf, size);
     }
 }
 
@@ -86,8 +105,20 @@ void activateBLEServer(MenuItem* self, void* args) {
   }
   self->name = "Starting BLE...";
   Menu::render();
-  bleConnector->init();
+  bleConnector->start();
   self->name = bleConnector->allset ? "BLE Active" : "BLE Error";
+}
+
+void activateZigbee(MenuItem* self, void* args) {
+  if (zigbeeConnector->allset) {
+    self->name = "Zigbee active";
+    Menu::render();
+    return;
+  }
+  self->name = "Starting Zigbee...";
+  Menu::render();
+  zigbeeConnector->init();
+  self->name = zigbeeConnector->allset ? "Zigbee Active" : "Zigbee Error";
 }
 
 MenuItem* ssidItem;
@@ -106,9 +137,18 @@ void config_tcpmenu(MenuItem* tcpMenu){
   tcpstatus = new MenuItem("Status: " + String((wifiClient->connected()) ? "Connected" : "Disconnected"), tcpMenu);
 }
 
+MenuItem* blemac;
 MenuItem* blestatus;
 void config_blemenu(MenuItem* bleMenu){
+  blemac = new MenuItem("MAC: \n" + BLEDevice::getAddress().toString(), bleMenu);
   blestatus = new MenuItem("Status: " + String((bleConnector->allset) ? "Active" : "Inactive"), bleMenu);
+}
+
+MenuItem* zigbeeadr;
+MenuItem* zigbeestatus;
+void config_zigbeemenu(MenuItem* zigbeeMenu){
+  zigbeeadr = new MenuItem("Address: " + String(zigbeeConnector->getAddress(), HEX), zigbeeMenu);
+  zigbeestatus = new MenuItem("Status: " + String((zigbeeConnector->allset) ? "Active" : "Inactive"), zigbeeMenu);
 }
 
 String formatMessageTime(uint8_t* timeBytes) {
@@ -144,6 +184,8 @@ void update_info(){
   tcpstatus->name = "State: " + String((wifiClient->connected()) ? "Connected" : "Disconnected");
 
   blestatus->name = "State: " + String((bleConnector->allset) ? "Active" : "Inactive");
+  
+  zigbeestatus->name = "State: " + String((zigbeeConnector->allset) ? "Active" : "Inactive");
 
   msgprotocol->name = "Protocol: " + String(lastMessage.command);
   msgsender->name = "Sen: " + String(lastMessage.username);
@@ -162,6 +204,14 @@ void setup() {
   IoTBoard::init_leds();
   IoTBoard::init_display();
   IoTBoard::init_buttons();
+  IoTBoard::init_spi();
+  IoTBoard::init_zigbee();
+
+  display->clearDisplay();
+  Serial.println(String("BLE MAC Address: ") + BLEDevice::getAddress().toString());
+  uint8_t* mac = BLEDevice::getAddress().getNative();
+  zigbeeConnector->setAddress((uint16_t)(mac[4] << 8 | mac[5]));
+  Serial.printf("Zigbee Address: %04x\n", zigbeeConnector->getAddress());
 
   tmpmessage.command = 128;
   u64_t timeoffset = 1765061214086;
@@ -185,6 +235,9 @@ void setup() {
   MenuItem* blecnn = new MenuItem("BLE", rootMenu);
   blecnn->action = activateBLEServer;
 
+  MenuItem* zigbeecnn = new MenuItem("Zigbee", rootMenu);
+  zigbeecnn->action = activateZigbee;
+
   MenuItem* ledsMenu = new MenuItem("Toggle LEDs", rootMenu);
   ledsMenu->action = LEDsoff;
 
@@ -192,10 +245,12 @@ void setup() {
   MenuItem* ipMenu = new MenuItem("WiFi info", infoMenu);
   MenuItem* tcpMenu = new MenuItem("internet info", infoMenu);
   MenuItem* bleMenu = new MenuItem("BLE info", infoMenu);
+  MenuItem* zigbeeMenu = new MenuItem("Zigbee info", infoMenu);
   MenuItem* TrafficMenu = new MenuItem("Traffic info", infoMenu);
   config_ipmenu(ipMenu);
   config_tcpmenu(tcpMenu);
   config_blemenu(bleMenu);
+  config_zigbeemenu(zigbeeMenu);
   config_trafficmenu(TrafficMenu);
   update_info();
 
