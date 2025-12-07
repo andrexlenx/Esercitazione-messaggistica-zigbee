@@ -9,8 +9,9 @@
 #define SERVICE_UUID        "b1f43047-1aae-4f6c-9429-74e61110dc84"
 #define WRITE_CHARACTERISTIC_UUID "1e1701ee-62fe-45cc-8e74-331b3ef29cf7"
 #define READ_CHARACTERISTIC_UUID  "c8b3d07a-c082-4580-988f-5a271ff60601"
+#define DEVICE_NAME "BLE_Zigbee_Gateway"
 
-class ServerCallbacks : public BLEServerCallbacks {
+class ServerCallbacks: public BLEServerCallbacks {
   void onConnect(BLEServer *server) override {
     Serial.println("Peer connected");
   }
@@ -72,10 +73,15 @@ class BLEConnector {
         BLEInboundCallback *writeChar = new BLEInboundCallback();
         BLEOutboundCallback *readChar = new BLEOutboundCallback();
 
-    BLEConnector() {}
+    BLEConnector() {
+        init();
+    }
 
     void init(){
-        BLEDevice::init("BLE_Zigbee_Gateway");
+        BLEDevice::init(DEVICE_NAME);
+    }
+
+    void start(){
         pServer = BLEDevice::createServer();
         pService = pServer->createService(SERVICE_UUID);
         pServer->setCallbacks(new ServerCallbacks());
@@ -105,8 +111,12 @@ class BLEConnector {
     void stop(){
         BLEDevice::stopAdvertising();
         pService->stop();
-        BLEDevice::deinit(true);
         allset = false;
+    }
+
+    void release(){
+        stop();
+        BLEDevice::deinit(true);
     }
 
     void sendData(const uint8_t* data, size_t length){
