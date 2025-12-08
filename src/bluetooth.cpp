@@ -73,9 +73,7 @@ class BLEConnector {
         BLEInboundCallback *writeChar = new BLEInboundCallback();
         BLEOutboundCallback *readChar = new BLEOutboundCallback();
 
-    BLEConnector() {
-        init();
-    }
+    BLEConnector() {}
 
     void init(){
         BLEDevice::init(DEVICE_NAME);
