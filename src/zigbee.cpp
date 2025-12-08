@@ -12,26 +12,52 @@ class ZigbeeConnector {
     public:
     bool allset = false;
     uint16_t addr;
+    uint16_t panId;
+    int channel;
     void (*ondata)(uint8_t* data, size_t size) = nullptr;
     TaskHandle_t zigtask;
 
-    ZigbeeConnector(uint16_t addr = ZIGBEE_ADDRESS) : addr(addr) {}
+    ZigbeeConnector(uint16_t addr = ZIGBEE_ADDRESS, uint16_t panId = ZIGBEE_PANID, int channel = ZIGBEE_CHANNEL) : addr(addr), panId(panId), channel(channel) {}
 
     void init(){
         zigbee->setAddress(addr);
-        zigbee->setPanId(ZIGBEE_PANID);
-        zigbee->setChannel(ZIGBEE_CHANNEL);
+        zigbee->setPanId(panId);
+        zigbee->setChannel(channel);
         allset = true;
-        xTaskCreate(Receiver, "ZigbeeTask", 5120, this, 1, &zigtask);
+        xTaskCreate(Receiver, "ZigbeeTask", 4096, this, 1, &zigtask);
     }
 
     void setAddress(uint16_t addr){
         this->addr = addr;
         zigbee->setAddress(addr);
     }
+    
+    void setPanId(uint16_t panId){
+        this->panId = panId;
+        zigbee->setPanId(panId);
+    }
+
+    void setChannel(int channel){
+        this->channel = channel;
+        zigbee->setChannel(channel);
+    }
 
     uint16_t getAddress(){
         return addr;
+    }
+
+    uint16_t getPanId(){
+        return panId;
+    }
+
+    int getChannel(){
+        return channel;
+    }
+
+    String getAddressString(){
+        char buf[5];
+        sprintf(buf, "%02X%02X", (addr >> 8) & 0xFF, addr & 0xFF);
+        return String(buf);
     }
 
     void registerAddress(uint16_t addr){
@@ -82,7 +108,7 @@ class ZigbeeConnector {
         ZigbeeConnector* self = static_cast<ZigbeeConnector*>(pvParameters);
         while(self->allset){
             if(zigbee->receivePacket()){
-                uint8_t received[4096];
+                uint8_t received[1024];
                 zigbee->readBytes(received, sizeof(received));
                 if (self->ondata) self->ondata(received, sizeof(received));
             }
