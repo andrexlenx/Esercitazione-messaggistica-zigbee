@@ -65,7 +65,7 @@ class InternetClass {
         InternetClass* self = static_cast<InternetClass*>(parameter);
         while (self->client.connected()) {
             if (self->client.available()) {
-                uint8_t buffer[4096];
+                uint8_t buffer[1024];
                 self->read(buffer, sizeof(buffer));
             }
             delay(50);
