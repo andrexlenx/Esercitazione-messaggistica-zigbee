@@ -58,13 +58,32 @@ void onZigbeeReceived(uint8_t* buf, size_t size) {
     }
 }
 
+int testover = 0;
 mymsg_t tmpmessage = {};
 void testsend(MenuItem* self, void* args) {
   tmpmessage.command = (int)args;
   memcpy(tmpmessage.time, &lastMessage.time, 8);
-  if (bleConnector->allset) {
-      bleConnector->sendData((uint8_t*)&tmpmessage, sizeof(mymsg_t) - sizeof(tmpmessage.message) + strlen(tmpmessage.message) + 1);
+  switch (testover) {
+    case 0:
+      if (wifiClient->connected()) {
+        Internet::write((uint8_t*)&tmpmessage, sizeof(mymsg_t) - sizeof(tmpmessage.message) + strlen(tmpmessage.message) + 1);
+      }
+      break;
+    case 1:
+      if (bleConnector->allset) {
+          bleConnector->sendData((uint8_t*)&tmpmessage, sizeof(mymsg_t) - sizeof(tmpmessage.message) + strlen(tmpmessage.message) + 1);
+      }
+      break;
+    case 2:
+      if (zigbeeConnector->allset) {
+          zigbeeConnector->sendBroadcast((uint8_t*)&tmpmessage, sizeof(mymsg_t) - sizeof(tmpmessage.message) + strlen(tmpmessage.message) + 1);
+      }
+      break;
   }
+}
+
+void testoversend(MenuItem* self, void* args) {
+  testover = (int)args;
 }
 
 void LEDsoff(MenuItem* self, void* args) {
@@ -147,7 +166,9 @@ void config_blemenu(MenuItem* bleMenu){
 MenuItem* zigbeeadr;
 MenuItem* zigbeestatus;
 void config_zigbeemenu(MenuItem* zigbeeMenu){
-  zigbeeadr = new MenuItem("Address: " + String(zigbeeConnector->getAddress(), HEX), zigbeeMenu);
+  MenuItem* zigbeepan = new MenuItem("PAN ID: " + String(zigbeeConnector->getPanId(), HEX), zigbeeMenu);
+  MenuItem* zigbeechan = new MenuItem("Channel: " + String(zigbeeConnector->getChannel()), zigbeeMenu);
+  zigbeeadr = new MenuItem("Address: " + zigbeeConnector->getAddressString(), zigbeeMenu);
   zigbeestatus = new MenuItem("Status: " + String((zigbeeConnector->allset) ? "Active" : "Inactive"), zigbeeMenu);
 }
 
@@ -206,12 +227,13 @@ void setup() {
   IoTBoard::init_buttons();
   IoTBoard::init_spi();
   IoTBoard::init_zigbee();
+  bleConnector->init();
 
   display->clearDisplay();
   Serial.println(String("BLE MAC Address: ") + BLEDevice::getAddress().toString());
   uint8_t* mac = BLEDevice::getAddress().getNative();
-  zigbeeConnector->setAddress((uint16_t)(mac[4] << 8 | mac[5]));
-  Serial.printf("Zigbee Address: %04x\n", zigbeeConnector->getAddress());
+  zigbeeConnector->setAddress(mac[0]);
+  Serial.println("Zigbee Address: " + zigbeeConnector->getAddressString());
 
   tmpmessage.command = 128;
   u64_t timeoffset = 1765061214086;
@@ -225,6 +247,7 @@ void setup() {
 
   internet->onMessage = onInetReceived;
   bleConnector->writeChar->ondata = onBleReceived;
+  zigbeeConnector->ondata = onZigbeeReceived;
 
   MenuItem* rootMenu = new MenuItem("MAIN MENU");
   Menu::init_menu(rootMenu);
@@ -270,16 +293,26 @@ void setup() {
   allLEDsOffItem->setAction(allLEDs, (void*)LOW);
 
   MenuItem* testmenu = new MenuItem("Send Test Msg", rootMenu);
-  MenuItem* sendadvertisement = new MenuItem("Send Advertisement", testmenu);
-  sendadvertisement->setAction(testsend, (void*)4);
-  MenuItem* sendiscovery = new MenuItem("Send Discovery", testmenu);
-  sendiscovery->setAction(testsend, (void*)8);
-  MenuItem* sendrecv = new MenuItem("Send recv ack", testmenu);
-  sendrecv->setAction(testsend, (void*)127);
-  MenuItem* sendmessage = new MenuItem("Send Message", testmenu);
-  sendmessage->setAction(testsend, (void*)128);
-  MenuItem* sendbroadcast = new MenuItem("Send Broadcast", testmenu);
-  sendbroadcast->setAction(testsend, (void*)255);
+  MenuItem* testovers[3];
+  testovers[0] = new MenuItem("Send over Internet", testmenu);
+  testovers[0]->setAction(testoversend, (void*)0);
+  testovers[1] = new MenuItem("Send over BLE", testmenu);
+  testovers[1]->setAction(testoversend, (void*)1);
+  testovers[2] = new MenuItem("Send over Zigbee", testmenu);
+  testovers[2]->setAction(testoversend, (void*)2);
+
+  for (int i = 0; i < 3; i++) {
+    MenuItem* sendadvertisement = new MenuItem("Send Advertisement", testovers[i]);
+    sendadvertisement->setAction(testsend, (void*)4);
+    MenuItem* sendiscovery = new MenuItem("Send Discovery", testovers[i]);
+    sendiscovery->setAction(testsend, (void*)8);
+    MenuItem* sendrecv = new MenuItem("Send recv ack", testovers[i]);
+    sendrecv->setAction(testsend, (void*)127);
+    MenuItem* sendmessage = new MenuItem("Send Message", testovers[i]);
+    sendmessage->setAction(testsend, (void*)128);
+    MenuItem* sendbroadcast = new MenuItem("Send Broadcast", testovers[i]);
+    sendbroadcast->setAction(testsend, (void*)255);
+  }
 
   Menu::render();
 }
