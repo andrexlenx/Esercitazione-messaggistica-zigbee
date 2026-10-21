@@ -19,6 +19,8 @@ class MenuItem {
     String name;
     void* actionargs = nullptr;
     void (*action)(MenuItem* self, void* args) = nullptr;
+    void* backargs = nullptr;
+    void (*backaction)(MenuItem* self, void* args) = nullptr;
 
     MenuItem(String item_name, MenuItem* parent_item = nullptr) {
         name = item_name;
@@ -36,6 +38,17 @@ class MenuItem {
     void triggerAction() {
         if (action != nullptr) {
             action(this, actionargs);
+        }
+    }
+
+    void setBackAction(void (*backaction_func)(MenuItem* self, void* args), void* args = nullptr) {
+        backaction = backaction_func;
+        backargs = args;
+    }
+
+    void triggerBackAction() {
+        if (backaction != nullptr) {
+            backaction(this, backargs);
         }
     }
 };

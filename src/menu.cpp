@@ -69,6 +69,7 @@ void MenuClass::nextitem(){
 void MenuClass::selectItem(){    
     if (CurrentMenu->children.size() < selectedItem) return;
     if (CurrentMenu->children.size() == selectedItem) {
+        CurrentMenu->triggerBackAction();
         if (CurrentMenu->parent != nullptr) {
             CurrentMenu = CurrentMenu->parent;
         }else {
